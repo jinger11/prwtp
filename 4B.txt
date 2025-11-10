@@ -1,0 +1,119 @@
+<!-- 4B-- >
+
+Create four API using Node.JS, ExpressJS and MongoDB for CURD Operations on assignment
+
+setup
+
+	mkdir assignment-api
+cd assignment-api
+npm init -y
+npm install express mongoose body-parser dotenv
+
+File: server.js
+	
+	// server.js
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const bodyParser = require('body-parser');
+
+const app = express();
+app.use(bodyParser.json());
+
+// ----- MongoDB connection -----
+// set MONGODB_URI in .env, e.g. MONGODB_URI=mongodb://localhost:27017/assignmentsdb
+const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/assignmentsdb';
+mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(()=> console.log('MongoDB connected'))
+  .catch(err => { console.error('MongoDB connection error:', err); process.exit(1); });
+
+// ----- Assignment model -----
+const { Schema } = mongoose;
+const assignmentSchema = new Schema({
+  title: { type: String, required: true },
+  description: { type: String, default: '' },
+  dueDate: { type: Date, default: null },
+  status: { type: String, enum: ['pending','submitted','graded'], default: 'pending' },
+  createdAt: { type: Date, default: Date.now }
+});
+const Assignment = mongoose.model('Assignment', assignmentSchema);
+
+// ----- Routes -----
+// Health
+app.get('/', (req, res) => res.send('Assignment API running'));
+
+// 1) Create assignment
+app.post('/api/assignments', async (req, res) => {
+  try {
+    const { title, description, dueDate, status } = req.body;
+    if (!title) return res.status(400).json({ error: 'Title is required' });
+    const a = new Assignment({ title, description, dueDate, status });
+    const saved = await a.save();
+    return res.status(201).json(saved);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// 2) Read all assignments
+app.get('/api/assignments', async (req, res) => {
+  try {
+    const assignments = await Assignment.find().sort({ createdAt: -1 });
+    return res.json(assignments);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// 3) Read single assignment by id
+app.get('/api/assignments/:id', async (req, res) => {
+  try {
+    const a = await Assignment.findById(req.params.id);
+    if (!a) return res.status(404).json({ error: 'Assignment not found' });
+    return res.json(a);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// 4) Update assignment by id (partial update)
+app.put('/api/assignments/:id', async (req, res) => {
+  try {
+    const updates = req.body;
+    const opts = { new: true, runValidators: true };
+    const updated = await Assignment.findByIdAndUpdate(req.params.id, updates, opts);
+    if (!updated) return res.status(404).json({ error: 'Assignment not found' });
+    return res.json(updated);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// 5) Delete assignment by id
+app.delete('/api/assignments/:id', async (req, res) => {
+  try {
+    const deleted = await Assignment.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Assignment not found' });
+    return res.json({ message: 'Assignment deleted' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ----- Start server -----
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
+
+
+3) .env example
+
+	MONGODB_URI=mongodb://localhost:27017/assignmentsdb
+	PORT=3000
+
+4) Run the server
+node server.js
