@@ -1,0 +1,105 @@
+4B NEW
+MongoDB Atlas
+
+mkdir pr4
+cd pr4
+npm init -y
+npm install express mongoose dotenv body-parser
+code .
+============================================
+
+-------------------------------------------------------
+create file name as .env
+	MONGODB_URI=mongodb+srv://raundalmanasaiml_db_user:3bLqWdgKHaHHHFiI@assignmentsdb.robuntf.mongodb.net/newdbtest
+	PORT=3000  
+
+create server.js
+	// server.js
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const path = require('path');
+
+const app = express();
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+// serve static files from public/
+app.use(express.static(path.join(__dirname, 'public')));
+
+// connect to MongoDB (Atlas URI in .env -> MONGODB_URI)
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/assignmentdb', {
+  useNewUrlParser: true, useUnifiedTopology: true
+})
+.then(()=> console.log('✅ MongoDB connected'))
+.catch(err => console.error('❌ MongoDB connection error', err));
+
+// simple user schema
+const userSchema = new mongoose.Schema({
+  name: String, email: { type: String, unique: true }, password: String, createdAt: { type: Date, default: Date.now }
+});
+const User = mongoose.model('User', userSchema);
+
+// show index.html at root (express.static already handles this)
+// handle form POST
+app.post('/register', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) return res.status(400).send('All fields required');
+
+    const u = new User({ name, email, password });
+    await u.save();
+    res.send(`<h3>User Registered</h3><p>Name: ${name}</p><p>Email: ${email}</p><a href="/">Back</a>`);
+	  } catch (err) {
+		console.error(err);
+		if (err.code === 11000) return res.send('Email already exists. <a href="/">Back</a>');
+		res.status(500).send('Error saving user');
+	  }
+	});
+
+	// (Optional) keep the API route too
+	app.get('/', (req, res) => {
+	  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+	});
+
+	app.get('/api/assignments', (req, res) => res.send('Assignment API running'));
+
+	// start server
+	const PORT = process.env.PORT || 3000;
+	app.listen(PORT, ()=> console.log(`Server listening on http://localhost:${PORT}`));
+
+	
+	
+	
+	
+Create folder Public Inside that:
+
+index.html
+
+	<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>User Registration</title>
+</head>
+<body>
+  <h2>User Registration</h2>
+
+  <form id="registerForm" method="POST" action="/register">
+    <label>Name:</label><br>
+    <input type="text" name="name" required><br><br>
+
+    <label>Email:</label><br>
+    <input type="email" name="email" required><br><br>
+
+    <label>Password:</label><br>
+    <input type="password" name="password" required><br><br>
+
+    <button type="submit">Register</button>
+  </form>
+
+  <hr>
+  <div id="message"></div>
+	</body>
+	</html>
+
